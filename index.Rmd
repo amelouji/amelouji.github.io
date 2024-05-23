@@ -59,7 +59,6 @@ assign2.rawData <- read.csv("Assignment2_Data.csv", header = TRUE)
 
 View(assign2.rawData)
 
-"Help me"
 
 ```
 
