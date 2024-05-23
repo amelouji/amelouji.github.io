@@ -1,0 +1,195 @@
+---
+title: "PSYC 4310: RMS-2"
+subtitle: "Assignment #2: Histograms and confidence intervals"
+author:
+  - Amel Ouji
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    number_sections: yes
+    theme: united
+    toc: yes
+    toc_depth: 2
+    toc_float: true
+  pdf_document:
+    number_sections: yes
+    toc: no
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+knitr::opts_chunk$set(echo = TRUE,tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+# Description
+In Assignment #2, we will practice importing data, plotting a basic histogram, and calculating the mean and 95% confidence interval.  The data set will be measures of simple reaction time estimated using the RT test on the following website: https://faculty.washington.edu/chudler/java/redgreen.html.  Take the test for both your dominant and non-dominant hand and enter your RT scores into one of the rows in the following google sheet:
+https://docs.google.com/spreadsheets/d/19YlqBuY5NsLyEGDrlG8r9DCjOukJ3V9J_bNT3sCsvFU/edit?usp=sharing.
+
+Important notes: (1) Enter the five RT scores per hand, not the average RT score; (2) Enter RT scores in seconds (e.g., .265); (3) Enter your age in column B.
+
+# Preliminaries
+```{r results="hide", message=FALSE}
+
+# clear the workspace
+rm(list = ls())
+
+# load the tidyverse, Rmisc, Hmisc, plyr, reshape, and ggplot2 packages.  
+# (Note: Be sure that these packages are 'installed' before you attempt to load them.)
+
+library(tidyverse)
+library(Rmisc)
+library(Hmisc)
+library(plyr)
+library(reshape)
+library(ggplot2)
+
+```
+
+# Import the data
+Export the google sheet and save it on your hard drive as a .csv file.  Note the folder location because you will need it to import the data into R.
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
+
+# Import the data into R
+
+assign2.rawData <- read.csv("Assignment2_Data.csv", header = TRUE)
+
+
+# Confirm that the data were properly imported using "View".  Inspect the data to make sure the number of rows and columns is correct.
+
+View(assign2.rawData)
+
+```
+
+# Create new data frame with subject means
+```{r}
+
+# Create two new variables by calculating the mean RT for each subject in both conditions (dominant and non-dominant).  Multiply by 1000 so that RT is in units of ms rather than seconds.
+
+meanRT_dom <- rowMeans(assign2.rawData[,c(3,4,5,6,7)]) * 1000
+meanRT_nondom <- rowMeans(assign2.rawData[,8:12]) * 1000
+
+
+# Create a new data frame with four columns: subject.ID, age, mean RT (dominant hand), mean RT (non-dominant hand) 
+
+assign2.aggregData <- data.frame(subject.ID = assign2.rawData$X,
+                                 age = assign2.rawData$age,
+                                 meanRT_dom,
+                                 meanRT_nondom)
+
+
+# Let's assume that the aim of our study was to estimate RT for young adults (age 18-26).  One of our subjects is clearly not a young adult (and hasn't been one for a very, very long time).  Let's exclude the data from that subject.
+
+
+assign2.aggregData <- subset(assign2.aggregData, age >= 17 & age <= 26)
+
+
+# Inspect the new data frame to make sure that it looks right.  Does it have the correct number of rows and columns?
+
+# Yes
+
+```
+
+# Plot histograms (one for dominant and one for non-dominant).  Include a label for the x-axis and a title for the plot.
+```{r}
+
+dom.hist <- hist(assign2.aggregData$meanRT_dom,
+                  main = paste("Histogram of Dominant Means"),
+          
+                 xlab = "RT (ms)", 
+                 col = "lightblue")
+
+nondom.hist <- hist(assign2.aggregData$meanRT_nondom, 
+                    main = paste("Histogram of Nondominant Means"),
+                
+                 xlab = "RT (ms)", 
+                 col = "purple")
+
+
+```
+
+# Calculate the mean and 95% confidence interval
+```{r}
+
+# calculate the sample mean. Round to two digits after the decimal point.
+
+sample.means <- round(colMeans(assign2.aggregData[,3:4]), 2)
+
+# calculate the number of values in the data set
+
+sample.n <- length(assign2.aggregData$subject.ID)
+
+# calculate the standard deviation
+
+sample.sd <- sapply(assign2.aggregData[c(3,4)], sd)
+
+# calculate the standard error
+
+sample.se <- sample.sd/ sqrt(sample.n)
+
+# the next three lines specify the alpha (for the confidence level), degrees of freedom, and critical value of t
+alpha <- 0.05
+df <- sample.n - 1
+t.score <- qt(p = alpha/2, df=df, lower.tail = F)
+
+# calculate the margin of error
+
+moe <- t.score * sample.se
+
+# calculate the lower and upper bounds of the confidence interval.  Round to two digits after the decimal point.
+
+
+CI95.lower.bound <- round(sample.means - moe, 2)
+CI95.upper.bound <- round(sample.means + moe, 2)
+
+
+# output the results.  The output for the dominant condition should look like this: "Dominant: M = ###.# ms, 95% CI: [###.##, ###.##]
+print(paste0("Dominant: M = ", sample.means[1]," ms, ", 
+             "95% CI: [",CI95.lower.bound[1], ", ", CI95.upper.bound[1],"]"))
+print(paste0("Non-dominant: M = ", sample.means[2]," ms, ", 
+             "95% CI: [",CI95.lower.bound[2], ", ", CI95.upper.bound[2],"]"))
+
+```
+
+# Use the CI function in the Rmisc package to calculate the mean and 95%CI.  You should get the same values.
+```{r}
+
+CI95.rmics.dom <- Rmisc::CI(unlist(assign2.aggregData$meanRT_dom), ci= 0.95)
+CI95.rmics.nondom <-Rmisc::CI(unlist(assign2.aggregData$meanRT_nondom), ci= 0.95)
+
+
+print(paste0("Dominant: M = ", CI95.rmics.dom[2]," ms, ", 
+             "95% CI: [",CI95.rmics.dom[3], ", ", CI95.rmics.dom[1],"]"))
+print(paste0("Non-dominant: M = ", CI95.rmics.nondom[2]," ms, ", 
+             "95% CI: [",CI95.rmics.nondom[3], ", ", CI95.rmics.nondom[1],"]"))
+
+```
+
+# Convert data frame from wide to long format and plot the data
+```{r}
+
+# convert from wide to long format (see Field Section 3.9.4)
+
+assign2.aggregData.long <- melt(assign2.aggregData, 
+                                id.vars = c("subject.ID", "age"),
+                                measure.vars = c("meanRT_dom", "meanRT_nondom"),
+                                variable = c("condition"))
+
+colnames(assign2.aggregData.long)[4] <- c("RT")
+
+levels(assign2.aggregData.long$condition) <- c("Dominant", "Non-dominant")
+
+# plot the data
+
+ggplot(assign2.aggregData.long) + aes(condition, RT) +
+  stat_summary(fun = mean, geom = "point") + 
+  stat_summary(fun.data = mean_cl_boot,  geom = "errorbar", width = 0.2)
+
+```
+
+
+# Interpretation: Do the confidence intervals from the two conditions overlap?  What does the overlap (or lack thereof) tell us about the reaction time for dominant and non-dominant hands?  Write a short paragraph below to explain what can be inferred from the findings.  (Hint: See Section 2.5.2.4 of Field for more about how to interpret overlapping/non-overlapping CIs.)
+
+The dominant sample has a mean reaction time of 314 with a CI of 294 to 333. The non-dominant sample has a mean reaction time of 310 with a CI of 295 to 325. Being that they overlap, we have a lack of evidence that RT for dominant and non-dominant hands is different. This makes sense because we took two samples from the same population and we would see how the CI they are similar which they are. The overlap can also show how it is possible the difference is not statistically significant but we should do a statistical test to determine that. 
+
+
