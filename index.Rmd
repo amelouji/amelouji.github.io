@@ -59,6 +59,8 @@ assign2.rawData <- read.csv("Assignment2_Data.csv", header = TRUE)
 
 View(assign2.rawData)
 
+"Help me"
+
 ```
 
 # Create new data frame with subject means
